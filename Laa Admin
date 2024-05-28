@@ -1,0 +1,210 @@
+local Mercury = loadstring(game:HttpGet("https://raw.githubusercontent.com/deeeity/mercury-lib/master/src.lua"))()
+
+local savedWalkspeed = 16
+local savedJumpPower = 50
+local savedCloseKeybind = Enum.KeyCode.F
+
+local function toggleNoclip(value)
+    local noclip = game:GetService("Players").LocalPlayer.Character:FindFirstChild("Humanoid") or game:GetService("Players").LocalPlayer.CharacterAdded:Wait():WaitForChild("Humanoid")
+    if noclip then
+        noclip:ChangeState(value and Enum.HumanoidStateType.Physics or Enum.HumanoidStateType.None)
+    end
+    print("Noclip " .. (value and "enabled" or "disabled"))
+end
+
+toggleNoclip(false)
+
+local GUI = Mercury:Create{
+    Name = "Admin Commands",
+    Size = UDim2.fromOffset(500, 400),
+    Theme = Mercury.Themes.Dark,
+    Link = "https://github.com/deeeity/mercury-lib"
+}
+
+local playerTab = GUI:Tab{
+    Name = "Player Commands",
+    Icon = "rbxassetid://8569322835"
+}
+
+local walkspeedSlider = playerTab:Slider{
+    Name = "Walkspeed",
+    Default = savedWalkspeed,
+    Min = 0,
+    Max = 100,
+    Callback = function(value)
+        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = value
+    end
+}
+
+local jumpPowerSlider = playerTab:Slider{
+    Name = "Jump Power",
+    Default = savedJumpPower,
+    Min = 0,
+    Max = 250,
+    Callback = function(value)
+        game.Players.LocalPlayer.Character.Humanoid.JumpPower = value
+    end
+}
+
+playerTab:Button{
+    Name = "Reset Sliders",
+    Callback = function()
+        walkspeedSlider:Set(savedWalkspeed)
+        jumpPowerSlider:Set(savedJumpPower)
+    end
+}
+
+playerTab:Button{
+    Name = "Sit",
+    Callback = function()
+        local humanoid = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.Sit = true
+        end
+    end
+}
+
+local scriptTab = GUI:Tab{
+    Name = "Scripts",
+    Icon = "rbxassetid://8569322835"
+}
+
+scriptTab:Button{
+    Name = "Infinity Yield",
+    Callback = function()
+        loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
+    end
+}
+
+local tp = scriptTab:Button{
+    Name = "CTRL + TP",
+    Callback = function()
+        local UIS = game:GetService("UserInputService")
+        local Player = game.Players.LocalPlayer
+        local Mouse = Player:GetMouse()
+
+        function GetCharacter()
+            return game.Players.LocalPlayer.Character
+        end
+
+        function Teleport(pos)
+            local Char = GetCharacter()
+            if Char then
+                Char:MoveTo(pos)
+            end
+        end
+
+        UIS.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 and UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
+                Teleport(Mouse.Hit.p)
+            end
+        end)
+    end
+}
+
+scriptTab:Button{
+    Name = "CMD X",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/CMD-X/CMD-X/master/Source", true))()
+    end
+}
+
+
+local miscTab = GUI:Tab{
+    Name = "Misc",
+    Icon = "rbxassetid://8569322835"
+}
+
+local noclipToggle = miscTab:Toggle{
+    Name = "Noclip",
+    StartingState = false,
+    Callback = function(value)
+        toggleNoclip(value)
+    end
+}
+
+miscTab:Textbox{
+    Name = "Follow Player",
+    Callback = function(text)
+        local foundPlayer = nil
+        for _, player in ipairs(game.Players:GetPlayers()) do
+            if string.lower(string.sub(player.Name, 1, #text)) == string.lower(text) then
+                foundPlayer = player
+                break
+            end
+        end
+        if foundPlayer then
+            print("Following player:", foundPlayer.Name)
+        else
+            print("Player not found")
+        end
+    end
+}
+
+miscTab:Button{
+    Name = "View Other Players",
+    Callback = function()
+        local playerList = {}
+        for _, player in ipairs(game.Players:GetPlayers()) do
+            if player ~= game.Players.LocalPlayer then
+                table.insert(playerList, player.Name)
+            end
+        end
+
+        if #playerList > 0 then
+            print("Other players in the game:")
+            for _, name in ipairs(playerList) do
+                print("- " .. name)
+            end
+        else
+            print("No other players in the game.")
+        end
+    end
+}
+
+miscTab:Button{
+    Name = "Rejoin",
+    Callback = function()
+        game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, game.Players.LocalPlayer)
+    end
+}
+
+local creditsTab = GUI:Tab{
+    Name = "Credits",
+    Icon = "rbxassetid://8569322835"
+}
+
+creditsTab:Credit{
+    Name = "Scripter: ToriTreat",
+    Description = "Adapted the script"
+}
+
+creditsTab:Credit{
+    Name = "Designer: ToriTreat",
+    Description = "Designed the UI"
+}
+
+local settingsTab = GUI:Tab{
+    Name = "Settings",
+    Icon = "rbxassetid://8569322835"
+}
+
+settingsTab:Button{
+    Name = "Save Changes",
+    Callback = function()
+        savedWalkspeed = walkspeedSlider:Get()
+        savedJumpPower = jumpPowerSlider:Get()
+        print("Changes saved")
+    end
+}
+
+settingsTab:Button{
+    Name = "Load Saved",
+    Callback = function()
+        walkspeedSlider:Set(savedWalkspeed)
+        jumpPowerSlider:Set(savedJumpPower)
+        print("Previous settings loaded")
+    end
+}
+
+GUI:Run()
