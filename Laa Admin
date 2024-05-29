@@ -4,15 +4,60 @@ local savedWalkspeed = 16
 local savedJumpPower = 50
 local savedCloseKeybind = Enum.KeyCode.F
 
+local followingPlayer = nil
+local viewingPlayer = nil
+
+local noclipEnabled = false
+
 local function toggleNoclip(value)
-    local noclip = game:GetService("Players").LocalPlayer.Character:FindFirstChild("Humanoid") or game:GetService("Players").LocalPlayer.CharacterAdded:Wait():WaitForChild("Humanoid")
-    if noclip then
-        noclip:ChangeState(value and Enum.HumanoidStateType.Physics or Enum.HumanoidStateType.None)
+    noclipEnabled = value
+    if value then
+        for _, part in ipairs(game.Players.LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+        print("Noclip enabled")
+    else
+        for _, part in ipairs(game.Players.LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = true
+            end
+        end
+        print("Noclip disabled")
     end
-    print("Noclip " .. (value and "enabled" or "disabled"))
 end
 
-toggleNoclip(false)
+local function followPlayer(player)
+    followingPlayer = player
+    while followingPlayer == player do
+        local target = player.Character and player.Character.PrimaryPart
+        if target then
+            local distance = (target.Position - game.Players.LocalPlayer.Character.PrimaryPart.Position).magnitude
+            if distance > 5 then
+                game.Players.LocalPlayer.Character:MoveTo(target.Position)
+            end
+        end
+        wait(0.1)
+    end
+end
+
+local function unfollowPlayer()
+    followingPlayer = nil
+end
+
+local function teleportToPosition(position)
+    game.Players.LocalPlayer.Character:SetPrimaryPartCFrame(CFrame.new(position))
+end
+
+local function findPlayerFromName(name)
+    for _, player in ipairs(game.Players:GetPlayers()) do
+        if string.lower(string.sub(player.Name, 1, #name)) == string.lower(name) then
+            return player
+        end
+    end
+    return nil
+end
 
 local GUI = Mercury:Create{
     Name = "Admin Commands",
@@ -23,7 +68,7 @@ local GUI = Mercury:Create{
 
 local playerTab = GUI:Tab{
     Name = "Player Commands",
-    Icon = "rbxassetid://8569322835"
+    Icon = "rbxasset://textures/ui/PlayerList/FriendIcon@2x.png"
 }
 
 local walkspeedSlider = playerTab:Slider{
@@ -64,41 +109,23 @@ playerTab:Button{
     end
 }
 
+playerTab:Toggle{
+    Name = "Noclip",
+    StartingState = false,
+    Callback = function(value)
+        toggleNoclip(value)
+    end
+}
+
 local scriptTab = GUI:Tab{
     Name = "Scripts",
-    Icon = "rbxassetid://8569322835"
+    Icon = "rbxasset://textures/ui/PlayerList/OwnerIcon@2x.png"
 }
 
 scriptTab:Button{
     Name = "Infinity Yield",
     Callback = function()
         loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
-    end
-}
-
-local tp = scriptTab:Button{
-    Name = "CTRL + TP",
-    Callback = function()
-        local UIS = game:GetService("UserInputService")
-        local Player = game.Players.LocalPlayer
-        local Mouse = Player:GetMouse()
-
-        function GetCharacter()
-            return game.Players.LocalPlayer.Character
-        end
-
-        function Teleport(pos)
-            local Char = GetCharacter()
-            if Char then
-                Char:MoveTo(pos)
-            end
-        end
-
-        UIS.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 and UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
-                Teleport(Mouse.Hit.p)
-            end
-        end)
     end
 }
 
@@ -109,32 +136,30 @@ scriptTab:Button{
     end
 }
 
-
-local miscTab = GUI:Tab{
-    Name = "Misc",
-    Icon = "rbxassetid://8569322835"
-}
-
-local noclipToggle = miscTab:Toggle{
-    Name = "Noclip",
-    StartingState = false,
-    Callback = function(value)
-        toggleNoclip(value)
+scriptTab:Button{
+    Name = "CTRL + Click (Teleport)",
+    Callback = function()
+        local mouse = game.Players.LocalPlayer:GetMouse()
+        mouse.Button1Down:Connect(function()
+            if not game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftControl) then return end
+            teleportToPosition(mouse.Hit.Position)
+        end)
     end
 }
 
-miscTab:Textbox{
-    Name = "Follow Player",
+local miscTab = GUI:Tab{
+    Name = "Misc",
+    Icon = "rbxasset://textures/ui/PlayerList/StarIcon@2x.png"
+}
+
+local followOtherPlayersTextBox = miscTab:Textbox{
+    Name = "Follow Other Players",
+    Placeholder = "Enter player name...",
     Callback = function(text)
-        local foundPlayer = nil
-        for _, player in ipairs(game.Players:GetPlayers()) do
-            if string.lower(string.sub(player.Name, 1, #text)) == string.lower(text) then
-                foundPlayer = player
-                break
-            end
-        end
-        if foundPlayer then
-            print("Following player:", foundPlayer.Name)
+        local player = findPlayerFromName(text)
+        if player then
+            followPlayer(player)
+            print("Following player:", player.Name)
         else
             print("Player not found")
         end
@@ -142,36 +167,38 @@ miscTab:Textbox{
 }
 
 miscTab:Button{
-    Name = "View Other Players",
+    Name = "Unfollow",
     Callback = function()
-        local playerList = {}
-        for _, player in ipairs(game.Players:GetPlayers()) do
-            if player ~= game.Players.LocalPlayer then
-                table.insert(playerList, player.Name)
-            end
-        end
+        unfollowPlayer()
+        print("Unfollowed player")
+    end
+}
 
-        if #playerList > 0 then
-            print("Other players in the game:")
-            for _, name in ipairs(playerList) do
-                print("- " .. name)
-            end
+local viewOtherPlayersTextBox = miscTab:Textbox{
+    Name = "View Other Players",
+    Placeholder = "Enter player name...",
+    Callback = function(text)
+        local player = findPlayerFromName(text)
+        if player then
+            game.Workspace.CurrentCamera.CameraSubject = player.Character.Humanoid
+            print("Viewing player:", player.Name)
         else
-            print("No other players in the game.")
+            print("Player not found")
         end
     end
 }
 
 miscTab:Button{
-    Name = "Rejoin",
+    Name = "Unview",
     Callback = function()
-        game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, game.Players.LocalPlayer)
+        game.Workspace.CurrentCamera.CameraSubject = game.Players.LocalPlayer.Character.Humanoid
+        print("Unviewed player")
     end
 }
 
 local creditsTab = GUI:Tab{
     Name = "Credits",
-    Icon = "rbxassetid://8569322835"
+    Icon = "rbxasset://textures/ui/PlayerList/developer@2x.png"
 }
 
 creditsTab:Credit{
@@ -190,7 +217,7 @@ local settingsTab = GUI:Tab{
 }
 
 settingsTab:Button{
-    Name = "Save Changes",
+    Name = "Save jump power and walkspeed changes",
     Callback = function()
         savedWalkspeed = walkspeedSlider:Get()
         savedJumpPower = jumpPowerSlider:Get()
@@ -205,6 +232,12 @@ settingsTab:Button{
         jumpPowerSlider:Set(savedJumpPower)
         print("Previous settings loaded")
     end
+}
+
+settingsTab:Keybind{
+    Name = "Close Keybind",
+    Keybind = savedCloseKeybind,
+    Description = "Set the keybind to close GUI"
 }
 
 GUI:Run()
